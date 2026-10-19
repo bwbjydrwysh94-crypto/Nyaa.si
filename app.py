@@ -2,18 +2,22 @@ import os
 import threading
 import time
 from bs4 import BeautifulSoup
+import cloudscraper
 from flask import Flask
 import requests
 
 app = Flask(__name__)
 
-# === بيانات التوكن وقناتك الجديدة ===
+# === بيانات التوكن وقناتك ===
 TOKEN = "8820447124:AAGX1xh2RXRG2NLD4XXBQ6ajVmyVtFm9e-A"
 CHANNEL_USERNAME = (
-    "@All_anime_c"  # ضع هنا معرف قناتك الخاصة بجميع الأنميات
+    "@All_anime_c"  # ضع معرف قناتك هنا بدقة وتأكد أن البوت مشرف
 )
 URL = "https://witanime.net/"
 RECORD_FILE = "sent_witanime_all.txt"
+
+# إنشاء كاشف قوي يتجاوز حماية المواقع (مثل Cloudflare)
+scraper = cloudscraper.create_scraper()
 
 
 def load_sent():
@@ -37,11 +41,10 @@ def send_telegram_photo(photo_url, caption):
       "parse_mode": "Markdown",
   }
   try:
-    response = requests.post(api_url, data=payload)
+    response = requests.post(api_url, data=payload, timeout=10)
     if response.status_code != 200:
       send_telegram_text(caption)
-  except Exception as e:
-    print(f"خطأ في إرسال الصورة: {e}")
+  except Exception:
     send_telegram_text(caption)
 
 
@@ -54,35 +57,29 @@ def send_telegram_text(message):
       "disable_web_page_preview": False,
   }
   try:
-    requests.post(api_url, data=payload)
+    requests.post(api_url, data=payload, timeout=10)
   except Exception as e:
-    print(f"خطأ في إرسال التليجرام: {e}")
+    print(f"خطأ في إرسال التيليجرام: {e}")
 
 
 def check_loop():
   while True:
     try:
       sent_items = load_sent()
-      headers = {
-          "User-Agent": (
-              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-          )
-      }
-      response = requests.get(URL, headers=headers, timeout=15)
+      # استخدام الكاشف القوي لسحب الموقع حتى لو كان محميأ
+      response = scraper.get(URL, timeout=15)
+
       if response.status_code == 200:
         soup = BeautifulSoup(response.text, "html.parser")
         items = soup.find_all("div", class_="episodes-card")
 
         for item in items:
-          # استخراج اسم الحلقة بالعربي
           title_tag = item.find("div", class_="episodes-card-title")
           title = title_tag.get_text(strip=True) if title_tag else ""
 
-          # استخراج رابط المشاهدة
           link_tag = item.find("a")
           link = link_tag.get("href") if link_tag else ""
 
-          # استخراج صورة الأنمي (البوستر)
           img_tag = item.find("img")
           img_url = ""
           if img_tag:
@@ -107,15 +104,15 @@ def check_loop():
             save_sent(title)
             time.sleep(2)
     except Exception as e:
-      print(f"خطأ في فحص موقع Witanime: {e}")
+      print(f"خطأ في الاتصال بالموقع: {e}")
 
-    # فحص الموقع كل 10 دقائق لجلب كل جديد
+    # فحص الموقع كل 10 دقائق لجلب الجديد فوراً
     time.sleep(600)
 
 
 @app.route("/")
 def home():
-  return "Witanime All Episodes Bot is Running 24/7!"
+  return "Ultimate Witanime Bot is Running 24/7!"
 
 
 if __name__ == "__main__":
