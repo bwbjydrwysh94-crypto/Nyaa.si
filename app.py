@@ -122,3 +122,11 @@ if __name__ == "__main__":
 
   port = int(os.environ.get("PORT", 10000))
   app.run(host="0.0.0.0", port=port)
+if __name__ == "__main__":
+  # تشغيل حلقة فحص الأنمي في خلفية منفصلة
+  bot_thread = threading.Thread(target=check_loop)
+  bot_thread.daemon = True
+  bot_thread.start()
+
+  # تشغيل سيرفر الويب ليبقى السيرفر مستيقظاً على Render
+  app.run(host="0.0.0.0", port=10000)
