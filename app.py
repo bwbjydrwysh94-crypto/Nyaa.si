@@ -8,6 +8,18 @@ import requests
 
 app = Flask(__name__)
 
+@app.route("/test")
+def test_telegram():
+  try:
+    send_telegram_text(
+        "🤖 رسالة تجريبية ناجحة: البوت متصل بالقناة ويعمل بكفاءة!"
+    )
+    return (
+        "تم إرسال الرسالة التجريبية بنجاح إلى قناتك على تليجرام! تحقق من القناة."
+    )
+  except Exception as e:
+    return f"حدث خطأ أثناء الإرسال: {e}"
+
 # === بيانات التوكن وقناتك ===
 TOKEN = "8820447124:AAGX1xh2RXRG2NLD4XXBQ6ajVmyVtFm9e-A"
 CHANNEL_USERNAME = (
