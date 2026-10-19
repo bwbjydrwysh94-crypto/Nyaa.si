@@ -10,10 +10,10 @@ app = Flask(__name__)
 # === بيانات التوكن وقناتك الجديدة ===
 TOKEN = "8820447124:AAGX1xh2RXRG2NLD4XXBQ6ajVmyVtFm9e-A"
 CHANNEL_USERNAME = (
-    "@All_anime_c"  # ضع هنا معرف قناتك الثانية الخاصة بجميع الأنميات
+    "@All_anime_c"  # ضع هنا معرف قناتك الخاصة بجميع الأنميات
 )
-URL = "https://nyaa.si/"
-RECORD_FILE = "sent_nyaa.txt"
+URL = "https://witanime.net/"
+RECORD_FILE = "sent_witanime_all.txt"
 
 
 def load_sent():
@@ -28,13 +28,30 @@ def save_sent(title):
     f.write(title + "\n")
 
 
-def send_telegram(message):
+def send_telegram_photo(photo_url, caption):
+  api_url = f"https://api.telegram.org/bot{TOKEN}/sendPhoto"
+  payload = {
+      "chat_id": CHANNEL_USERNAME,
+      "photo": photo_url,
+      "caption": caption,
+      "parse_mode": "Markdown",
+  }
+  try:
+    response = requests.post(api_url, data=payload)
+    if response.status_code != 200:
+      send_telegram_text(caption)
+  except Exception as e:
+    print(f"خطأ في إرسال الصورة: {e}")
+    send_telegram_text(caption)
+
+
+def send_telegram_text(message):
   api_url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
   payload = {
       "chat_id": CHANNEL_USERNAME,
       "text": message,
       "parse_mode": "Markdown",
-      "disable_web_page_preview": True,
+      "disable_web_page_preview": False,
   }
   try:
     requests.post(api_url, data=payload)
@@ -54,45 +71,51 @@ def check_loop():
       response = requests.get(URL, headers=headers, timeout=15)
       if response.status_code == 200:
         soup = BeautifulSoup(response.text, "html.parser")
-        rows = soup.select("table.torrent-list tbody tr")
+        items = soup.find_all("div", class_="episodes-card")
 
-        for row in rows:
-          # استخراج عنوان الحلقة
-          links = row.select("td:nth-child(2) a")
-          title_link = None
-          for l in links:
-            href_val = l.get("href", "")
-            if "view" in href_val:
-              title_link = l
-              break
+        for item in items:
+          # استخراج اسم الحلقة بالعربي
+          title_tag = item.find("div", class_="episodes-card-title")
+          title = title_tag.get_text(strip=True) if title_tag else ""
 
-          if title_link:
-            title = title_link.get_text(strip=True)
+          # استخراج رابط المشاهدة
+          link_tag = item.find("a")
+          link = link_tag.get("href") if link_tag else ""
 
-            # استخراج رابط الماجنت (Magnet Link) المباشر
-            magnet_tag = row.select_one('a[href^="magnet:?"]')
-            magnet_link = magnet_tag.get("href") if magnet_tag else ""
+          # استخراج صورة الأنمي (البوستر)
+          img_tag = item.find("img")
+          img_url = ""
+          if img_tag:
+            img_url = (
+                img_tag.get("data-src")
+                or img_tag.get("src")
+                or img_tag.get("data-lazy-src")
+            )
 
-            if title and title not in sent_items:
-              if magnet_link:
-                msg = (
-                    f"🔥 *حلقة جديدة (جميع الأنميات)*\n\n📌 *{title}*\n\n🔗"
-                    f" [اضغط هنا لتحميل الماجنت (Magnet)]({magnet_link})\n\n🌐"
-                    f" المصدر: Nyaa.si"
-                )
-                send_telegram(msg)
-                save_sent(title)
-                time.sleep(2)
+          if title and title not in sent_items:
+            msg = (
+                f"🔥 *حلقة جديدة مترجمة*\n\n📌 *{title}*\n\n🔗"
+                f" [اضغط هنا للمشاهدة والتحميل]({link})\n\n🌐 المصدر:"
+                f" Witanime"
+            )
+
+            if img_url:
+              send_telegram_photo(img_url, msg)
+            else:
+              send_telegram_text(msg)
+
+            save_sent(title)
+            time.sleep(2)
     except Exception as e:
-      print(f"خطأ في فحص موقع Nyaa: {e}")
+      print(f"خطأ في فحص موقع Witanime: {e}")
 
-    # يفحص الموقع كل 10 دقائق لجلب الجديد فوراً
+    # فحص الموقع كل 10 دقائق لجلب كل جديد
     time.sleep(600)
 
 
 @app.route("/")
 def home():
-  return "Nyaa Anime Bot is Running 24/7!"
+  return "Witanime All Episodes Bot is Running 24/7!"
 
 
 if __name__ == "__main__":
